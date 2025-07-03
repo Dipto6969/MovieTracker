@@ -1,7 +1,8 @@
+// Updated version of your first MovieForm with poster as URL and cast fields restored.
 "use client"
 
 import { useState } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useFieldArray } from "react-hook-form"
 import { Star, X, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import type { MovieFormData, CastMember } from "@/types/movie"
+import type { MovieFormData } from "@/types/movie"
 
 interface MovieFormProps {
   onSubmit: (data: MovieFormData) => void
@@ -19,23 +20,22 @@ interface MovieFormProps {
 }
 
 const GENRES = [
-  "Action", "Adventure", "Animation", "Comedy", "Crime", "Documentary",
-  "Drama", "Family", "Fantasy", "History", "Horror", "Music", "Mystery",
-  "Romance", "Science Fiction", "TV Movie", "Thriller", "War", "Western",
+  "Action", "Adventure", "Animation", "Comedy", "Crime",
+  "Documentary", "Drama", "Family", "Fantasy", "History",
+  "Horror", "Music", "Mystery", "Romance", "Science Fiction",
+  "TV Movie", "Thriller", "War", "Western",
 ]
 
 export function MovieForm({ onSubmit, initialData, isEditing = false }: MovieFormProps) {
   const [selectedGenres, setSelectedGenres] = useState<string[]>(initialData?.genre || [])
   const [newGenre, setNewGenre] = useState("")
   const [rating, setRating] = useState(initialData?.rating || 0)
-  const [poster, setPoster] = useState(initialData?.poster || "")
-  const [cast, setCast] = useState<CastMember[]>(initialData?.cast || [])
 
   const {
     register,
     handleSubmit,
+    control,
     setValue,
-    watch,
     formState: { errors },
   } = useForm<MovieFormData>({
     defaultValues: {
@@ -51,6 +51,11 @@ export function MovieForm({ onSubmit, initialData, isEditing = false }: MovieFor
       link: initialData?.link || "",
       notes: initialData?.notes || "",
     },
+  })
+
+  const { fields: castFields, append: appendCast, remove: removeCast } = useFieldArray({
+    control,
+    name: "cast",
   })
 
   const addGenre = (genre: string) => {
@@ -72,9 +77,7 @@ export function MovieForm({ onSubmit, initialData, isEditing = false }: MovieFor
     onSubmit({
       ...data,
       genre: selectedGenres,
-      rating,
-      poster,
-      cast,
+      rating: rating,
     })
   }
 
@@ -85,32 +88,12 @@ export function MovieForm({ onSubmit, initialData, isEditing = false }: MovieFor
       </CardHeader>
       <CardContent className="p-6">
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-8">
-
-          {/* Poster URL Input (Instead of Upload) */}
-          <div>
-            <Label htmlFor="poster" className="text-base font-medium">Poster URL</Label>
-            <Input
-              id="poster"
-              {...register("poster")}
-              value={poster}
-              onChange={(e) => setPoster(e.target.value)}
-              placeholder="https://image.tmdb.org/..."
-              className="mt-2"
-            />
-            <p className="text-sm text-gray-600 mt-1">Paste the image link of the movie poster</p>
-          </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Basic Info */}
             <div className="space-y-6">
               <div>
                 <Label htmlFor="name">Movie Name *</Label>
-                <Input
-                  id="name"
-                  {...register("name", { required: "Movie name is required" })}
-                  className="mt-2"
-                  placeholder="Enter movie name"
-                />
+                <Input id="name" {...register("name", { required: "Movie name is required" })} className="mt-2" />
                 {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>}
               </div>
 
@@ -120,18 +103,13 @@ export function MovieForm({ onSubmit, initialData, isEditing = false }: MovieFor
               </div>
 
               <div>
-                <Label htmlFor="trailer">Trailer URL</Label>
-                <Input
-                  id="trailer"
-                  {...register("trailer")}
-                  placeholder="https://youtube.com/watch?v=..."
-                  className="mt-2"
-                />
+                <Label htmlFor="poster">Poster URL</Label>
+                <Input id="poster" {...register("poster")} placeholder="https://..." className="mt-2" />
               </div>
 
               <div>
-                <Label htmlFor="link">MyDramaList Link</Label>
-                <Input id="link" {...register("link")} placeholder="https://mydramalist.com/..." className="mt-2" />
+                <Label htmlFor="trailer">Trailer URL</Label>
+                <Input id="trailer" {...register("trailer")} placeholder="https://youtube.com/watch?v=..." className="mt-2" />
               </div>
             </div>
 
@@ -139,12 +117,7 @@ export function MovieForm({ onSubmit, initialData, isEditing = false }: MovieFor
             <div className="space-y-6">
               <div>
                 <Label htmlFor="releaseDate">Release Date *</Label>
-                <Input
-                  id="releaseDate"
-                  type="date"
-                  {...register("releaseDate", { required: "Release date is required" })}
-                  className="mt-2"
-                />
+                <Input id="releaseDate" type="date" {...register("releaseDate", { required: "Release date is required" })} className="mt-2" />
                 {errors.releaseDate && <p className="text-red-500 text-sm mt-1">{errors.releaseDate.message}</p>}
               </div>
 
@@ -165,24 +138,23 @@ export function MovieForm({ onSubmit, initialData, isEditing = false }: MovieFor
                 </Select>
               </div>
 
+              {/* Rating */}
               <div>
                 <Label>Rating (0-10)</Label>
                 <div className="flex items-center gap-2 mt-2">
-                  <div className="flex gap-1">
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((star) => (
-                      <button
-                        key={star}
-                        type="button"
-                        onClick={() => setRating(star)}
-                        className="p-1 hover:scale-110 transition-transform"
-                      >
-                        <Star
-                          className={`w-6 h-6 ${star <= rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
-                        />
-                      </button>
-                    ))}
-                  </div>
-                  <span className="text-lg font-medium ml-2">{rating}/10</span>
+                  {[...Array(10)].map((_, i) => (
+                    <button
+                      key={i + 1}
+                      type="button"
+                      onClick={() => setRating(i + 1)}
+                      className="p-1 hover:scale-110 transition-transform"
+                    >
+                      <Star
+                        className={`w-6 h-6 ${i + 1 <= rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
+                      />
+                    </button>
+                  ))}
+                  <span className="ml-2 font-medium">{rating}/10</span>
                 </div>
               </div>
             </div>
@@ -190,8 +162,8 @@ export function MovieForm({ onSubmit, initialData, isEditing = false }: MovieFor
 
           {/* Genres */}
           <div>
-            <Label className="text-lg font-semibold">Genres</Label>
-            <div className="mt-4 space-y-4">
+            <Label>Genres</Label>
+            <div className="mt-4 space-y-2">
               <div className="flex flex-wrap gap-2">
                 {selectedGenres.map((genre) => (
                   <Badge key={genre} variant="secondary" className="flex items-center gap-1 px-3 py-1">
@@ -230,9 +202,30 @@ export function MovieForm({ onSubmit, initialData, isEditing = false }: MovieFor
             </div>
           </div>
 
+          {/* Cast */}
+          <div>
+            <div className="flex items-center justify-between">
+              <Label>Cast</Label>
+              <Button type="button" onClick={() => appendCast({ name: "", photo: "" })} size="sm" variant="outline">
+                <Plus className="w-4 h-4 mr-1" /> Add Cast Member
+              </Button>
+            </div>
+            <div className="mt-2 space-y-2">
+              {castFields.map((field, index) => (
+                <div key={field.id} className="flex gap-2 items-end">
+                  <Input {...register(`cast.${index}.name`)} placeholder="Actor name" className="flex-1" />
+                  <Input {...register(`cast.${index}.photo`)} placeholder="Photo URL (optional)" className="flex-1" />
+                  <Button type="button" onClick={() => removeCast(index)} size="sm" variant="destructive">
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Notes */}
           <div>
-            <Label htmlFor="notes" className="text-lg font-semibold">Personal Notes</Label>
+            <Label htmlFor="notes">Personal Notes</Label>
             <Textarea
               id="notes"
               {...register("notes")}
